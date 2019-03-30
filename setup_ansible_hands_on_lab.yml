@@ -89,7 +89,7 @@
     tags: 
       - initial_azure_setup
 
-  - name: "Create VMs on Azure"
+  - name: "Create/Get IP VMs on Azure"
     azure_rm_virtualmachine:
       name: "{{ item }}"
       resource_group: "{{ resource_group_name }}"
@@ -100,6 +100,7 @@
         - 22
         - 80
         - 443
+        - 9090
       image:
         offer: RHEL
         publisher: RedHat
@@ -146,6 +147,20 @@
       ansible_ssh_private_key_file: "{{ playbook_dir }}/id_rsa"
       groups: azure_vms
     with_items: "{{ results.results }}"
+
+  - name: Configure public DNS name ansibletowerX.westeurope.cloudapp.azure.com
+    azure_rm_publicipaddress:
+      name: "{{ item }}01"
+      resource_group: "{{ resource_group_name }}"
+      subscription_id: "{{ subscription_id }}"
+      domain_name: "ansible{{ item }}"
+      secret: "{{ secret }}"
+      tenant: "{{ tenant }}"
+      client_id: "{{ client_id }}"
+    with_items:
+      - tower1
+      - tower2
+      - tower3
 
 - name: Ensure the license file contains the eula_accepted parameter
   hosts: localhost
@@ -197,51 +212,108 @@
         name: sshd
         state: restarted
 
-    - name: install ansible
-      yum:
-        name: ansible
+    - name: Install epel 
+      yum: 
+        name: "http://dl.fedoraproject.org/pub/epel/epel-release-latest-7.noarch.rpm"
         state: present
 
-- name: Copy keys to Tower1 for ssh access to other towers and git
+    - name: Install the cockpit interface (for user who not manage to set up SSH)
+      yum: 
+        name: cockpit
+        state: latest
+
+    - name: Start and enable the cockpit interface
+      service: 
+        name: cockpit
+        state: started
+        enabled: true
+
+    # Open port manually when needed
+    # firewall-cmd --add-port=9090/tcp 
+    # firewall-cmd --permanent --add-port=9090/tcp 
+
+    # - name: Enable port 9090
+    #   firewalld: 
+    #     port: 9090/tcp
+    #     permanent: yes
+    #     state: enabled
+    #     immediate: true
+        
+    - name: install latest ansible
+      yum:
+        name: ansible
+        state: latest
+
+    # - name: Update all packages to latest version
+    #   yum:
+    #     name: "*"
+    #     state: latest
+
+    # - name: Reboot all the servers to load latest kernel
+    #   shell: "sleep 1 && reboot"
+    #   async: 1
+    #   poll: 0
+
+    # - name: Wait for the reboot to complete if there was a change.
+    #   wait_for_connection:
+    #     connect_timeout: 20
+    #     sleep: 5
+    #     delay: 10
+    #     timeout: 300
+
+
+- name: Copy keys to VMs for ssh access to other towers and git
   hosts: azure_vms
   gather_facts: yes
+  become: true
   tasks:
-  # - name: Create .ssh directory
-  #   file: 
-  #     path: /home/{{ admin_user }}/.ssh
-  #     state: directory
 # Make sure the Tower install scripts have passwordless ssh
+  - name: Create .ssh directory
+    file: 
+      path: /root/.ssh
+      state: directory
+      owner: "root"
+      group: "root"
+
   - name: Copy private key
     copy:
       src: "{{ playbook_dir }}/id_rsa"
-      dest: "/home/{{ admin_user }}/.ssh/id_rsa"
-      owner: "{{ admin_user }}"
-      group: "{{ admin_user }}"
+      dest: "/root/.ssh/id_rsa"
+      owner: "root"
+      group: "root"
       mode: 0600
 
   - name: Copy public key
     copy:
       src: "{{ playbook_dir }}/id_rsa.pub"
-      dest: "/home/{{ admin_user }}/.ssh/id_rsa.pub"
-      owner: "{{ admin_user }}"
-      group: "{{ admin_user }}"
+      dest: "/root/.ssh/id_rsa.pub"
+      owner: "root"
+      group: "root"
       mode: 0644
+
+  - name: Set authorized key took from file
+    authorized_key:
+      user: root
+      state: present
+      key: "{{ lookup('file', '{{ playbook_dir }}/id_rsa.pub') }}"
 
 - name: Install Tower
   hosts: tower1
   gather_facts: yes
-#  become: true
+  become: true
   tasks:
     - name: get Tower installation files
       get_url:
-        url: "https://releases.ansible.com/ansible-tower/setup/ansible-tower-setup-latest.tar.gz"
-        dest: "/home/{{ admin_user }}/ansible-tower-setup-latest.tar.gz"
+        # url: "https://releases.ansible.com/ansible-tower/setup/ansible-tower-setup-latest.tar.gz"
+        url: "https://releases.ansible.com/ansible-tower/setup/ansible-tower-setup-3.4.2-1.tar.gz"
+        dest: "/home/{{ admin_user }}/ansible-tower-setup.tar.gz"
         mode: 0440
       tags: install_tower
 
     - name: unarchive Tower installation files
       unarchive: 
-        src: "/home/{{ admin_user }}/ansible-tower-setup-latest.tar.gz"
+        remote_src: yes
+        src: "/home/{{ admin_user }}/ansible-tower-setup.tar.gz"
         dest: "/home/{{ admin_user }}/"
       tags: install_tower
 
@@ -270,10 +342,8 @@
         mode: "0644"
       tags: install_tower
 
-# Ansible install script must be run as root, but only ssh keys for admin user set
-# Set ANSIBLE_BECOME_METHOD and ANSIBLE_BECOME, to get sudo access.
     - name: run the install script
-      shell: "ANSIBLE_BECOME_METHOD='sudo' ANSIBLE_BECOME=True ./setup.sh"
+      shell: "./setup.sh"
       args:
         chdir: "{{ tower_install_directory }}"
       tags: install_tower
@@ -302,13 +372,12 @@
         name: epel-release
         state: present
 
-    - name: "install {{ item }}"
+    - name: "install git and tower-cli"
       yum: 
-        name: "{{ item }}"
+        name: 
+          - python2-ansible-tower-cli
+          - git
         state: present
-      with_items: 
-        - python2-ansible-tower-cli
-        - git
 
     - name: Copy the workshop files 
       copy:
@@ -317,7 +386,7 @@
         owner: "{{ admin_user }}"
         group: "{{ admin_user }}"
 
-# Make sure other users do not have the right to see these variables, which includes keys and Azure passwords
+    # Make sure other users do not have the right to see these variables, which includes keys and Azure passwords
     - name: copy variables file
       template: 
         src: variables.sh.j2

@@ -6,7 +6,7 @@ for i in $(seq 1 ${orgs}); do
 
   # If you really need to change the initial default password for the student VMs on Azure, change below.
 
-  tower-cli job_template create --name "create_azure_vm_${i}" --description "Job to create a VM in Azure for org${i}" --job-type run -i localhost_only${i} --project azurevms${i} --playbook create_vms.yml --credential=localcreds${i} -u admin -p $TOWERPW --survey-enabled true --survey-spec '{
+  tower-cli job_template create --name "create_azure_vm_${i}" --description "Job to create a VM in Azure for org${i}" --job-type run -i localhost_only${i} --project azurevms${i} --playbook create_vms.yml -u admin -p $TOWERPW --survey-enabled true --survey-spec '{
     "description": "",
     "name": "",
     "spec": [
@@ -49,7 +49,7 @@ for i in $(seq 1 ${orgs}); do
 }'
 
 
-  tower-cli job_template create --name "delete_azure_vm_${i}" --description "Job to delete a VM in Azure for org${i}" --job-type run -i localhost_only${i} --project azurevms${i} --playbook destroy_vms.yml --credential=localcreds${i} -u admin -p $TOWERPW --survey-enabled true --survey-spec '{
+  tower-cli job_template create --name "delete_azure_vm_${i}" --description "Job to delete a VM in Azure for org${i}" --job-type run -i localhost_only${i} --project azurevms${i} --playbook destroy_vms.yml -u admin -p $TOWERPW --survey-enabled true --survey-spec '{
     "description": "",
     "name": "",
     "spec": [
@@ -70,7 +70,7 @@ for i in $(seq 1 ${orgs}); do
   tower-cli job_template associate_credential --job-template "delete_azure_vm_${i}" --credential "azure_creds${i}" -u admin -p $TOWERPW
   tower-cli job_template associate_credential --job-template "create_azure_vm_${i}" --credential "azure_creds${i}" -u admin -p $TOWERPW
 
-  tower-cli role grant --team team${i} --job-template delete_azure_vm_${i} --type execute -u admin -p $TOWERPW
-  tower-cli role grant --team team${i} --job-template create_azure_vm_${i} --type execute -u admin -p $TOWERPW
+#  tower-cli role grant --team team${i} --job-template delete_azure_vm_${i} --type execute -u admin -p $TOWERPW
+#  tower-cli role grant --team team${i} --job-template create_azure_vm_${i} --type execute -u admin -p $TOWERPW
 
 done

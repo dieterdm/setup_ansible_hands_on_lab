@@ -9,19 +9,19 @@ tenant="..."
 secret="..."
 
 # Other Azure settings
-storage_account_name="ansibleworkshopdiag965"
-rhel7_version="7.3.2017032021"
 location="westeurope"
 #vm_size="Standard_F2s_v2"
 vm_size="Standard_F16s_v2"
-rhel_sku="7.3"
+rhel_sku="7.5"
+rhel7_version="7.5.2018081519"
 
 # resource group, network and storage will be created by the playbooks
 # Storage account name must be between 3 and 24 characters in length and use numbers and lower-case letters only
 # following settings match with the settings hardcoded in the create_vms script
 resource_group_name="ansible-workshop"
 virtual_network_name="ansible-workshop-vnet"
-storage_account_name="ansibleworkshopdiag965"
+storage_account_vm_name="ansibleworkshopvm"
+storage_account_tower_name="ansibleworkshoptower"
 subnet_name="ansiblehandson"
 
 # User that Ansible uses to configure the tower VMs. SSH to the towers will be possible with ssh keys only. 
