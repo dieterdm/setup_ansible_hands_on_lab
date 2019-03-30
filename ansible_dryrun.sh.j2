@@ -50,7 +50,8 @@ done
 # create inventory
 for (( i=1; i<=$NUMBER_OF_PARTICIPANTS; i++)); do
  tower-cli inventory create --name "vmforuser$i" --organization org${i} $credentials
- tower-cli inventory_source create --name azure_inventory --source azure_rm --credential azure_creds${i} --inventory vmforuser$i $credentials
+ tower-cli inventory_source create --name azure_inventory${i} --source azure_rm --credential azure_creds${i} --inventory vmforuser$i $credentials
+ tower-cli inventory_source update azure_inventory${i} $credentials
  #tower-cli host create -n ${ips[$i-1]} --enabled true -u wsuser$i -p MyPassword$1 -i vmforuser$i  $credentials
 done
 
