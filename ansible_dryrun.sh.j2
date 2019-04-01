@@ -63,8 +63,10 @@ done
 # create template
 for (( i=1; i<=$NUMBER_OF_PARTICIPANTS; i++)); do
  # trim whitespaces
- ip=${ips[$i-1]}
- tower-cli job_template create --name "ensure-cis-compliant-vm$i" --job-type run -i vmforuser${i} --project ensurecis$i --playbook main.yml --credential=cred_for_vm$i --extra-vars="vm_name=${ip}" $credentials
+ # ip=${ips[$i-1]}
+ # tower-cli job_template create --name "ensure-cis-compliant-vm$i" --job-type run -i vmforuser${i} --project ensurecis$i --playbook main.yml --credential=cred_for_vm$i --extra-vars="vm_name=${ip}" $credentials
+ 
+ tower-cli job_template create --name "ensure-cis-compliant-vm$i" --job-type run -i vmforuser${i} --project ensurecis$i --playbook main.yml --credential=cred_for_vm$i --extra-vars="vm_name=vmforuser${i}" $credentials
 done
 
 # run job on each VM
